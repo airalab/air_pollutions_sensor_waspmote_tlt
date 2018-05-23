@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>air_sensor</name>
+  <name>air_pollutions_sensor_waspmote_tlt</name>
   <version>0.0.0</version>
-  <description>The air_sensor package</description>
+  <description>The air_pollutions_sensor_waspmote_tlt package</description>
   <maintainer email="alisher@aira.life">Alisher A. Khassanov</maintainer>
   <license>BSD3</license>
   <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
