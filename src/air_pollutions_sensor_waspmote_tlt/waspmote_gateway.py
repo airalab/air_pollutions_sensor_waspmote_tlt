@@ -82,32 +82,36 @@ class WaspmoteMeasurementsDatabase:
             cur.execute("SELECT sensor_ts, db_ts, temp, hum, pres, co, no, so2, pm1, pm2_5, pm10"
                         "FROM measurements ORDER BY rowid DESC LIMIT 1;")
             row = cur.fetchone()
-            measure = dict()
-            measure['SensorTimestamp'] = row[0]
-            measure['DatabaseTimestamp'] = row[1]
-            measure['Temperature'] = row[2]
-            measure['Temperature_unit'] = 'C'
-            measure['Humidity'] = row[3]
-            measure['Humidity_unit'] = '%'
-            measure['Pressure'] = row[4]
-            measure['Pressure_unit'] = 'Pa'
-            measure['CO'] = row[5]
-            measure['CO_unit'] = 'ppm'
-            measure['NO'] = row[6]
-            measure['NO_unit'] = 'ppm'
-            measure['SO2'] = row[7]
-            measure['SO2_unit'] = 'ppm'
-            measure['PM1'] = row[8]
-            measure['PM1_unit'] = 'ug/m3'
-            measure['PM2_5'] = row[9]
-            measure['PM2_5_unit'] = 'ug/m3'
-            measure['PM10'] = row[10]
-            measure['PM10_unit'] = 'ug/m3'
+            if row:
+                measure = dict()
+                measure['SensorTimestamp'] = row[0]
+                measure['DatabaseTimestamp'] = row[1]
+                measure['Temperature'] = row[2]
+                measure['Temperature_unit'] = 'C'
+                measure['Humidity'] = row[3]
+                measure['Humidity_unit'] = '%'
+                measure['Pressure'] = row[4]
+                measure['Pressure_unit'] = 'Pa'
+                measure['CO'] = row[5]
+                measure['CO_unit'] = 'ppm'
+                measure['NO'] = row[6]
+                measure['NO_unit'] = 'ppm'
+                measure['SO2'] = row[7]
+                measure['SO2_unit'] = 'ppm'
+                measure['PM1'] = row[8]
+                measure['PM1_unit'] = 'ug/m3'
+                measure['PM2_5'] = row[9]
+                measure['PM2_5_unit'] = 'ug/m3'
+                measure['PM10'] = row[10]
+                measure['PM10_unit'] = 'ug/m3'
+            else:
+                measure = None
             return measure
 
 
 class WaspmoteGateway:
-    def __init__(self, server_address, server_secrets, otp_interval, msg_proc, parse_frame=False):
+    def __init__(self, server_address, server_secrets, otp_interval,
+                 msg_proc, parse_frame=False, db='./measurements.db'):
         self.parse_frame = parse_frame
         self.ext_proc = msg_proc
         self.otp_server = pyotp.TOTP(server_secrets['opt_key'], otp_interval)
@@ -118,11 +122,12 @@ class WaspmoteGateway:
                                              self.otp_server,
                                              self.msg_proc)
         self.threads = list()
-        self.threads.append(threading.Thread(target=self.server.serve_forever)
+        self.threads.append(threading.Thread(target=self.server.serve_forever))
         for t in self.threads:
             t.daemon = True
             t.start()
-        self.db = WaspmoteMeasurementsDatabase('measurements.db', 'measurements_schema.sql')
+        if db:
+            self.db = WaspmoteMeasurementsDatabase(db, 'measurements_schema.sql')
 
     def spin(self):
         for t in self.threads:
@@ -135,14 +140,15 @@ class WaspmoteGateway:
 
     def msg_proc(self, msg):
         msg_parsed = waspframe_parse(msg)
-        self.db.write(msg_parsed)
+        if self.db:
+            self.db.write(msg_parsed)
         if self.parse_frame:
             self.ext_proc(msg_parsed)
         elif:
             self.ext_proc(msg)
 
     def get_last_measurement(self):
-        return self.db.read()
+        return self.db.read() if self.db else None
 
 
 if __name__ == '__main__':
