@@ -1,0 +1,14 @@
+<launch>
+  <include file="$(find air_pollutions_sensor_waspmote_tlt)/launch/sensor_server.launch" />
+
+  <arg name="server_host" default="localhost" />
+  <arg name="server_port" default="5009" />
+
+  <group ns="sensor">
+    <node name="sensor" pkg="air_pollutions_sensor_waspmote_tlt" type="sensor_node">
+      <param name="server_host" value="$(arg server_host)" />
+      <param name="server_port" value="$(arg server_port)" />
+    </node>
+  </group>
+
+</launch>

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from air_pollutions_sensor_waspmote_tlt.waspmote_gateway import WaspmoteGateway
@@ -21,6 +22,7 @@ def get_args():
     args_parser.add_argument("gateway_secrets", help="Sensor gateway secrets directory path")
     args_parser.add_argument("--otp", help="Sensor gateway one time password interval")
     # args_parser.add_argument("--db", help="Sensor gateway database path")
+    args_parser.add_argument("unknown_args", nargs=argparse.REMAINDER)
     args = args_parser.parse_args()
     return args
 args = get_args()
@@ -30,7 +32,7 @@ gateway_secrets = {'certfile': args.gateway_secrets + '/server.crt',
                    'keyfile':  args.gateway_secrets + '/server.key',
                    'otp_key':  args.gateway_secrets + '/otp.key'}
 sensor = WaspmoteGateway((gateway_address_host, int(gateway_address_port)), gateway_secrets,
-                          args.otp if args.otp else GATEWAY_OTP_INTERVAL_DEFAULT)
+                          int(args.otp) if args.otp else GATEWAY_OTP_INTERVAL_DEFAULT)
 
 class Measurement(Resource):
     def get(self):

@@ -4,5 +4,5 @@
   <arg name="gw_secr"  default="$(find air_pollutions_sensor_waspmote_tlt)/secrets" />
   <arg name="otp_int"  default="3600" />
 
-  <node name="sensor" type="sensor_server" pkg="air_pollutions_sensor_waspmote_tlt" args="$(arg srv_addr) $(arg gw_addr) $(arg gw_secr) $(arg otp_int)" />
+  <node name="sensor" pkg="air_pollutions_sensor_waspmote_tlt" type="sensor_server" args="$(arg srv_addr) $(arg gw_addr) $(arg gw_secr) --otp $(arg otp_int)" />
 </launch>

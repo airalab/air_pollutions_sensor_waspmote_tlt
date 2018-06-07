@@ -8,6 +8,7 @@ import pyotp
 import sqlite3
 import threading
 import time
+import sys
 import os
 
 
@@ -59,9 +60,10 @@ class IncomingHandler(StreamRequestHandler): # instantiates for every incoming m
 class WaspmoteMeasurementsDatabase:
     def __init__(self, db_filename, schema_filename):
         self.db_filename = db_filename
-        self.schema_filename = schema_filename
+        self.schema_path = sys.path[0] + '/air_pollutions_sensor_waspmote_tlt/' + schema_filename
+
         if not os.path.exists(db_filename):
-            with open(schema_filename, 'r') as schema_file, sqlite3.connect(db_filename) as conn:
+            with open(self.schema_path, 'r') as schema_file, sqlite3.connect(db_filename) as conn:
                 schema = schema_file.read()
                 conn.executescript(schema)
 

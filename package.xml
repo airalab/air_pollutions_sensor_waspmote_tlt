@@ -5,17 +5,17 @@
   <description>The air_pollutions_sensor_waspmote_tlt package</description>
   <maintainer email="alisher@aira.life">Alisher A. Khassanov</maintainer>
   <license>BSD3</license>
-  <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
+
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>robonomics_liability</build_depend>
-  <build_depend>robonomics_lighthouse</build_depend>
+
+  <build_depend>message_generation</build_depend>
   <build_depend>rospy</build_depend>
-  <build_export_depend>robonomics_liability</build_export_depend>
-  <build_export_depend>robonomics_lighthouse</build_export_depend>
+
   <build_export_depend>rospy</build_export_depend>
-  <exec_depend>robonomics_liability</exec_depend>
-  <exec_depend>robonomics_lighthouse</exec_depend>
+  <build_export_depend>message_runtime</build_export_depend>
+
   <exec_depend>rospy</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
 
   <export>
   </export>
