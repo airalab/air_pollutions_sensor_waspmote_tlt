@@ -13,7 +13,7 @@ class SensorAPI:
         self.server_address = server_address
     
     def get_latest_measurement(self):
-        url = 'http://' + self.server_address[0] + ':' + str(server_address[1])
+        url = 'http://' + self.server_address[0] + ':' + str(self.server_address[1])
         measurement = json.loads(requests.get(url + '/latest_measurement').content)['data']
         return measurement
 
