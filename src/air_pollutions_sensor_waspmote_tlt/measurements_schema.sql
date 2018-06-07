@@ -4,7 +4,7 @@ CREATE TABLE measurements (
   db_ts              DATETIME DEFAULT CURRENT_TIMESTAMP, -- UTC
   temp               FLOAT, -- C
   hum                FLOAT, -- %
-  pres               FLOAT  -- Pa
+  pres               FLOAT, -- Pa
   co                 FLOAT, -- ppm
   no                 FLOAT, -- ppm
   so2                FLOAT, -- ppm

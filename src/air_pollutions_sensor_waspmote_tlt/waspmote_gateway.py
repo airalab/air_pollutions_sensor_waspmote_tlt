@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import time
-import threading
-import ssl
-from SocketServer import TCPServer, ThreadingMixIn, StreamRequestHandler
-import sqlite3
-import pyotp
 from .waspframe_parser import waspframe_parse
+from SocketServer import TCPServer, ThreadingMixIn, StreamRequestHandler
+import ssl
+import pyotp
+import sqlite3
+import threading
+import time
+import os
 
 
 class SSL_TCPServer(TCPServer):
@@ -70,16 +70,16 @@ class WaspmoteMeasurementsDatabase:
             values = (m['GMT'], m['TC'], m['HUM'], m['PRES'],
                       m['CO'], m['NO'], m['SO2'], m['PM1'], m['PM2_5'], m['PM10'])
             conn.executescript("""
-            INSERT INTO measurements
-                (sensor_ts, temp, hum, pres, co, no, so2, pm1, pm2_5, pm10)
-            VALUES
+            INSERT INTO measurements 
+                (sensor_ts, temp, hum, pres, co, no, so2, pm1, pm2_5, pm10) 
+            VALUES 
                 (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, values)
 
     def read(self): # latest
         with sqlite3.connect(self.db_filename) as conn:
-            cur = conn.cusor()
-            cur.execute("SELECT sensor_ts, db_ts, temp, hum, pres, co, no, so2, pm1, pm2_5, pm10"
+            cur = conn.cursor()
+            cur.execute("SELECT sensor_ts, db_ts, temp, hum, pres, co, no, so2, pm1, pm2_5, pm10 "
                         "FROM measurements ORDER BY rowid DESC LIMIT 1;")
             row = cur.fetchone()
             if row:
@@ -111,10 +111,10 @@ class WaspmoteMeasurementsDatabase:
 
 class WaspmoteGateway:
     def __init__(self, server_address, server_secrets, otp_interval,
-                 msg_proc, parse_frame=False, db='./measurements.db'):
+                 msg_proc=None, parse_frame=False, db='./measurements.db'):
         self.parse_frame = parse_frame
         self.ext_proc = msg_proc
-        self.otp_server = pyotp.TOTP(server_secrets['opt_key'], otp_interval)
+        self.otp_server = pyotp.TOTP(server_secrets['otp_key'], otp_interval)
         self.server = SSL_ThreadingTCPServer(server_address,
                                              IncomingHandler,
                                              server_secrets['certfile'],
@@ -142,12 +142,14 @@ class WaspmoteGateway:
         msg_parsed = waspframe_parse(msg)
         if self.db:
             self.db.write(msg_parsed)
-        if self.parse_frame:
-            self.ext_proc(msg_parsed)
-        elif:
-            self.ext_proc(msg)
+        if self.ext_proc:
+            if self.parse_frame:
+                self.ext_proc(msg_parsed)
+            else:
+                self.ext_proc(msg)
 
-    def get_last_measurement(self):
+    @property
+    def latest_measurement(self):
         return self.db.read() if self.db else None
 
 
