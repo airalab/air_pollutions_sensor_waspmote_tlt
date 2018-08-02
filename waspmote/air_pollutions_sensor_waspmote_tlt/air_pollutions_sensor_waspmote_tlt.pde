@@ -1,49 +1,43 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  *  Air pollution monitoring sensor firmware
  *  For Libelium Plug&Sense Smart Environment PRO
- *  April 2018, Alisher Khassanov <alisher@aira.life>
+ *  2018, Alisher Khassanov <alisher@aira.life>
  *  BSD 3-Clause License
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- *
- *  ATTENTION! Real-time clock (RTC) must be set in order to use one time password identification.
- *  Use serial interface to setup UTC time on clock.
- *
+ * 
  *  Wiring:
  *  - SOCKET_A : CO low concentrations probe
  *  - SOCKET_B : NO probe
  *  - SOCKET_C : SO2 probe
  *  - SOCKET_D : Particle Monitor PM-X
  *  - SOCKET_E : BME200 Temperature, humidity, pressure sensor
- *  - SOCKET_F :
+ *  - SOCKET_F : NC
  *
  *  Secrets:
- *  File "secrets.h" must contain:
- *  - One time password private code,
- *    example uint8_t hmacKey[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10};
- *  - TCP server SSL private key,
- *    example char certificate[] =
- *             "-----BEGIN CERTIFICATE-----\r"\
- *             "your-sertificate-here-------------------------------------------\r"\
- *             "your-sertificate-here-------------------------------------------\r"\
- *             ...
- *             "your-sertificate-here-------------------------------------------\r"\
- *             "-----END CERTIFICATE-----";
- *
+ *  File "secrets.h" must contain ed25519 keys.
+ *  - uint8_t signing_key[32] = {0x01, 0x02, ... 0x20},    // private key
+ *  - uint8_t verifying_key[32] = {0x01, 0x02, ... 0x20}.  // public key
+ *  
+ *  Signature verification tips:
+ *  - signing sizeof(frame.buffer) message you sign an array of MAX_LENGTH size with trailing zeros;
+ *  - if you append signature as a new field to a frame, your frame will have incremented "Num of Fields" value (5th byte)
+ *  
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#include <Wasp4G.h>
-#include <WaspFrame.h>
-#include <TOTP.h> // https://github.com/khssnv/TOTP-Arduino
-#include <sha1.h>
-#include <BME280.h>
-#include <WaspOPC_N2.h>
-#include <WaspSensorGas_Pro.h>
 #include "secrets.h"
+#include <Ed25519.h> // https://github.com/khssnv/waspmote_ed25519
+#include <WaspSensorGas_Pro.h>
+#include <WaspOPC_N2.h>
+#include <BME280.h>
+#include <WaspFrame.h>
+#include <Wasp4G.h>
 
 // IDENTIFICATION
 /////////////////////////////////////
-TOTP _TOTP = TOTP(hmacKey, 10, 3600);
 char mote_ID[] = "TLT01";
+uint8_t signature[64];
+uint8_t* privateKey = signing_key;  // from "secrets.h"
+uint8_t* publicKey = verifying_key; // from "secrets.h"
 /////////////////////////////////////
 
 // SERVER
@@ -93,24 +87,13 @@ void setup()
 
   RTC.ON();
   setupTime();
-
+  
   _4G.set_APN(apn);
-  _4G.ON();
-  error = _4G.manageSSL(socketId, Wasp4G::SSL_ACTION_STORE, Wasp4G::SSL_TYPE_CA_CERT, certificate);
-  if (error == 0)
-  {
-    USB.println(F("Set CA certificate OK"));
-  }
-  else
-  {
-    USB.print(F("Error setting CA certificate. Error="));
-    USB.println(error, DEC);
-  }
-  _4G.OFF();
-
-  pinMode(GP_I2C_MAIN_EN, OUTPUT);
-
-  USB.println(F("Setup complete..."));
+  _4G.show_APN();
+  
+  pinMode(GP_I2C_MAIN_EN, OUTPUT); // configure I2C bus to read sensors
+  
+  USB.println(F("Setup complete."));
 }
 
 void loop()
@@ -118,8 +101,9 @@ void loop()
   USB.println(F("***************************************"));
   USB.print(F("Time [Day of week, YY/MM/DD, hh:mm:ss]: "));
   USB.println(RTC.getTime());
-
-  digitalWrite(GP_I2C_MAIN_EN, HIGH);
+  
+  USB.println(F("Querying sensors..."));
+  digitalWrite(GP_I2C_MAIN_EN, HIGH); // enable I2C bus
   BME.ON();
   OPC_N2.ON();
   probeCO.ON();
@@ -162,15 +146,14 @@ void loop()
   USB.print(concentrationSO2);
   USB.println(F(" ppm"));
 
-  digitalWrite(GP_I2C_MAIN_EN, LOW);
+  digitalWrite(GP_I2C_MAIN_EN, LOW); // disable I2C bus
   OPC_N2.OFF();
   probeCO.OFF();
   probeNO.OFF();
   probeSO2.OFF();
 
   frame.createFrame(ASCII, mote_ID);
-  frame.addSensor(SENSOR_GMT, RTC.getTime());
-  frame.addSensor(SENSOR_STR, _TOTP.getCode(RTC.getEpochTime()));
+  // frame.addSensor(SENSOR_GMT, RTC.getTime()); // #TODO: on setup NTP RTC time update
   frame.addSensor(SENSOR_BAT, PWR.getBatteryLevel());
   frame.addSensor(SENSOR_GASES_PRO_TC, temperature);
   frame.addSensor(SENSOR_GASES_PRO_HUM, humidity);
@@ -181,18 +164,18 @@ void loop()
   frame.addSensor(SENSOR_GASES_PRO_PM1, OPC_N2._PM1);
   frame.addSensor(SENSOR_GASES_PRO_PM2_5, OPC_N2._PM2_5);
   frame.addSensor(SENSOR_GASES_PRO_PM10, OPC_N2._PM10);
+
+  Ed25519::sign(signature, privateKey, publicKey, frame.buffer, sizeof(frame.buffer)); // sign message
+  frame.addSensor(SENSOR_STR, (char*) signature);
   frame.showFrame();
 
-  USB.print(F("Free Memory: "));
-  USB.print(freeMemory());
-  USB.println(F(" bytes"));
-
+  USB.println(F("Sending data..."));
   _4G.ON();
-  error = _4G.openSocketSSL(socketId, host, port);
+  error = _4G.openSocketClient(socketId, Wasp4G::TCP, host, port);
   if (error == 0)
   {
     USB.println(F("Sending data..."));
-    error = _4G.sendSSL(socketId, (char*) frame.buffer);
+    error = _4G.send(socketId, (char*) frame.buffer);
     if (error == 0)
     {
       USB.println(F("Data sent successfully."));
@@ -202,7 +185,7 @@ void loop()
       USB.print(F("Error sending data. Code: "));
       USB.println(error, DEC);
     }
-    _4G.closeSocketSSL(socketId);
+    _4G.closeSocketClient(socketId);
   }
   else
   {
@@ -211,8 +194,8 @@ void loop()
   }
   _4G.OFF();
 
-  PWR.deepSleep("00:00:01:00", RTC_OFFSET, RTC_ALM1_MODE1, ALL_OFF);
-
+  PWR.deepSleep("00:00:06:00", RTC_OFFSET, RTC_ALM1_MODE1, ALL_OFF);
+  USB.ON();
 }
 
 void setupTime()
