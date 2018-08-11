@@ -1,14 +1,10 @@
 <launch>
-  <include file="$(find air_pollutions_sensor_waspmote_tlt)/launch/sensor_server.launch" />
+  <arg name="server_address" default="192.168.11.254:3009" />
+  <arg name="verifying_key" default="/home/alisher/verifying-public-key.ed25519" />
 
-  <arg name="server_host" default="localhost" />
-  <arg name="server_port" default="8080" />
-
-  <group ns="sensor">
-    <node name="sensor" pkg="air_pollutions_sensor_waspmote_tlt" type="sensor_node">
-      <param name="server_host" value="$(arg server_host)" />
-      <param name="server_port" value="$(arg server_port)" />
-    </node>
-  </group>
+  <node name="sensor" pkg="air_pollutions_sensor_waspmote_tlt" type="sensor_node" output="screen">
+    <param name="server_address" value="$(arg server_address)" />
+    <param name="verifying_key" value="$(arg verifying_key)" />
+  </node>
 
 </launch>

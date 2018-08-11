@@ -1,1 +1,68 @@
-sensor_node.py
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from std_msgs.msg import String
+import rospy
+import socket
+import ed25519
+import binascii
+from urllib.parse import urlparse
+import threading
+
+
+class SensorNode:
+    def __init__(self):
+        rospy.init_node('sensor')
+
+        # Sensor TCP socket
+        server_address = rospy.get_param('~server_address').split(':')
+        self.gw_addr = (server_address[0], int(server_address[1]))
+        self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.tcp_sock.bind(self.gw_addr)
+        self.tcp_sock.listen(1)
+
+        # Ed25519 verification
+        keydata = open(rospy.get_param('~verifying_key'), 'rb').read()
+        self.verifying_key = ed25519.VerifyingKey(keydata)
+
+        # Reciever loop
+        threading.Thread(target=self.recv_loop, daemon=True).start()
+
+        # ROS API
+        self.pub = rospy.Publisher('~data', String, queue_size=128)
+
+        rospy.loginfo('Node ' + rospy.get_name() + ' started.')
+    
+    def recv_loop(self):
+        while not rospy.is_shutdown():
+            conn, addr = self.tcp_sock.accept()
+            data = conn.recv(1024)
+            rospy.loginfo('Recieved: %s.', str(data))
+            try:
+                raw_msg, raw_sig = data[:-1].split(b'STR:')
+            except ValueError:
+                rospy.loginfo('Corrupted message.')
+                continue
+
+            msg = binascii.hexlify(raw_msg)
+            sig = binascii.hexlify(raw_sig)[:128] # binary
+            msg = bytearray(msg)
+            msg[9] = msg[9] - 1
+            msg = msg + b'0' * (512 - len(msg)) # 512 is signed buffer length
+            msg = binascii.a2b_hex(msg)
+
+            try:
+                self.verifying_key.verify(sig, msg, encoding='hex')
+                rospy.loginfo('Good signature.')
+                self.pub.publish(String(data=str(data.decode(errors='backslashreplace'))))
+            except ed25519.BadSignatureError:
+                rospy.loginfo('Bad signature.')
+            except AssertionError:
+                rospy.loginfo('Corrupted signature.')
+
+    def spin(self):
+        rospy.spin()
+        
+
+if __name__ == '__main__':
+    SensorNode().spin()
