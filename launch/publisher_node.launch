@@ -1,0 +1,12 @@
+<launch>
+  <arg name="ipfs_http_provider" default="http://127.0.0.1:5001" />
+  <arg name="ipfs_topic" default="sensor.0.airalab.org" />
+  <arg name="ros_topic" default="/sensor/data" />
+
+  <node name="ipfs_publisher" pkg="air_pollutions_sensor_waspmote_tlt" type="publisher_node" output="screen">
+    <param name="ipfs_http_provider" value="$(arg ipfs_http_provider)" />
+    <param name="ipfs_topic" value="$(arg ipfs_topic)" />
+    <param name="ros_topic" value="$(arg ros_topic)" />
+  </node>
+
+</launch>

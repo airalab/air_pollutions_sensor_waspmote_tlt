@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from std_msgs.msg import String
+import rospy
+from pexpect import spawn, EOF
+from urllib.parse import urlparse
+
+def ipfs_pub(api, topic, msg):
+    return spawn('ipfs --api={0} pubsub pub {1} "{2}\r\n"'.format(api, topic, msg)).expect(EOF)
+
+if __name__ == '__main__':
+    rospy.init_node('publisher')
+
+    ipfs_api = urlparse(rospy.get_param('~ipfs_http_provider')).netloc.split(':') 
+    ipfs_api = '/ip4/{0}/tcp/{1}'.format(ipfs_api[0], ipfs_api[1])
+
+    def on_msg(msg: String):
+        out = ipfs_pub(ipfs_api, rospy.get_param('~ipfs_topic'), msg.data)
+    rospy.Subscriber(rospy.get_param('~ros_topic'), String, on_msg)
+
+    rospy.loginfo("From %s, to %s.", rospy.get_param('~ros_topic'), rospy.get_param('~ipfs_topic'))
+    rospy.spin()
