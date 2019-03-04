@@ -1,1 +1,71 @@
-agent_node.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from robonomics_lighthouse.msg import Bid
+from std_msgs.msg import Empty, Duration
+import rospy
+import roslaunch
+
+
+class Agent:
+    def __init__(self):
+        rospy.init_node('agent')
+
+        # AIRA
+        rospy.loginfo('Connecting to ethereum node...')
+        rospy.wait_for_service('accounts')
+        self.accounts = rospy.ServiceProxy('accounts', Accounts)(AccountsRequest())
+        rospy.loginfo(str(self.accounts))
+        rospy.loginfo('Connection to liability node...')
+        rospy.wait_for_service('/liability/finish')
+        self.liability_finish = rospy.ServiceProxy('/liability/finish', Empty)
+        self.signing_bid = rospy.Publisher('/liability/infochan/signing/bid', Bid, queue_size=10)
+        if rospy.get_param('~approve', 'no') == 'yes':
+            self.approve(1000)
+
+        # Process
+        rospy.Subscribe('/agent/objective/process/duration', Duration, self.on_objective)
+        self.make_bid()
+
+        rospy.loginfo('Node ' + rospy.get_name() + ' started.')
+
+    def on_objective(self, duration):
+        # Launch IPFS publisher
+        uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+        roslaunch.configure_logging(uuid)
+        process = roslaunch.parent.ROSLaunchParent(uuid, [rospy.get_param('~publisher_node_launch')])
+        process.start()
+        rospy.loginfo('Launching process for %s...', str(duration.data.secs))
+        rospy.sleep(duration.data.secs)
+        rospy.loginfo('Process complete')
+        process.shutdown()
+
+        # Finalize
+        self.liability_finish()
+        self.make_bid()
+
+    def approve(self, value: int):
+        liability_factory = rospy.get_param('~liability_factory')
+        rospy.loginfo('Making approvement to liabilities factory %s.', liability_factory)
+        rospy.wait_for_service('approve')
+        request = ApproveRequest(spender=Address(address=liability_factory),
+                                 value=UInt256(uint256=str(value))
+        transaction = rospy.ServiceProxy('approve', Approve)(request)
+        rospy.loginfo('Approved %s on transation: %s.', value, transaction)
+
+    def make_bid(self):
+        rospy.loginfo('Making bid...')
+        bid = Bid()
+        bid.model = rospy.get_param('~model')
+        bid.token = rospy.get_param('~token')
+        bid.cost  = rospy.get_param('~price')
+        bid.lighthouseFee = 0
+        bid.deadline = '9999999'
+        self.signing_bid.publish(bid)
+
+    def spin(self):
+        rospy.spin()
+
+
+if __name__ == '__main__':
+    Agent().spin()

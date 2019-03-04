@@ -1,6 +1,6 @@
 <launch>
-  <arg name="server_address" default="192.168.11.254:3009" />
-  <arg name="verifying_key" default="/home/alisher/verifying-public-key.ed25519" />
+  <arg name="server_address" default="192.168.13.10:3009" />
+  <arg name="verifying_key" default="/root/TLT01-verifying-public-key.ed25519" />
 
   <node name="sensor" pkg="air_pollutions_sensor_waspmote_tlt" type="sensor_node" output="screen">
     <param name="server_address" value="$(arg server_address)" />

@@ -35,9 +35,12 @@ class SensorNode:
     
     def recv_loop(self):
         while not rospy.is_shutdown():
-            conn, addr = self.tcp_sock.accept()
-            data = conn.recv(1024)
-            rospy.loginfo('Recieved: %s.', str(data))
+            try:
+                conn, addr = self.tcp_sock.accept()
+                data = conn.recv(1024)
+                rospy.loginfo('Recieved: %s.', str(data))
+            except:
+                continue
             try:
                 raw_msg, raw_sig = data[:-1].split(b'STR:')
             except ValueError:
