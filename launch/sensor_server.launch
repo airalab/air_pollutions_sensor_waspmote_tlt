@@ -1,8 +1,0 @@
-<launch>
-  <arg name="srv_addr" default="localhost:8080" />
-  <arg name="gw_addr"  default="localhost:5009" />
-  <arg name="gw_secr"  default="$(find air_pollutions_sensor_waspmote_tlt)/secrets" />
-  <arg name="otp_int"  default="3600" />
-
-  <node name="sensor" pkg="air_pollutions_sensor_waspmote_tlt" type="sensor_server" args="$(arg srv_addr) $(arg gw_addr) $(arg gw_secr) --otp $(arg otp_int)" />
-</launch>
