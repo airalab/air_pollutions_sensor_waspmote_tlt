@@ -61,15 +61,16 @@ Gas probeSO2(SOCKET_C);
 float temperature;        // ºC
 float humidity;           // %RH
 float pressure;           // Pa
-int   measurePM;
 float concentrationCO;    // ppm
 float concentrationNO;    // ppm
 float concentrationSO2;   // ppm
 //////////////////////////////////////////////////////////////////////////////
 
-uint8_t  error;
+uint8_t error;
+uint8_t maxRetry = 3;
 
 void setupTime();
+int measurePM();
 
 void setup()
 {
@@ -113,7 +114,7 @@ void loop()
   temperature = BME.getTemperature(BME280_OVERSAMP_16X, BME280_FILTER_COEFF_OFF);
   humidity = BME.getHumidity(BME280_OVERSAMP_16X);
   pressure = BME.getPressure(BME280_OVERSAMP_16X, BME280_FILTER_COEFF_OFF);
-  measurePM = OPC_N2.getPM(10000, 10000);
+  measurePM();
   concentrationCO  = probeCO.getConc();
   concentrationNO  = probeNO.getConc();
   concentrationSO2 = probeSO2.getConc();
@@ -194,7 +195,7 @@ void loop()
   }
   _4G.OFF();
 
-  PWR.deepSleep("00:00:06:00", RTC_OFFSET, RTC_ALM1_MODE1, ALL_OFF);
+  PWR.deepSleep("00:00:01:00", RTC_OFFSET, RTC_ALM1_MODE1, ALL_OFF);
   USB.ON();
 }
 
@@ -253,3 +254,18 @@ void setupTime()
   USB.flush(); // clear serial input buffer
 }
 
+int measurePM() // returns 1 if OK, anything else if a sensor error code
+{
+  uint8_t measurePMerror = 0; // 1 - OK, other - not OK
+  uint8_t retry = 1; 
+  while (measurePMerror != 1) {
+    if (retry > maxRetry) {
+      USB.print(F("Error reading PM sensor. Error code: "));
+      USB.println(measurePMerror);
+      break;
+    }
+    measurePMerror = OPC_N2.getPM(10000, 10000);
+    retry++;
+  }
+  return measurePMerror;
+}
