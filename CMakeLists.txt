@@ -6,6 +6,10 @@ find_package(catkin REQUIRED
     rospy
 )
 
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+)
+
 catkin_python_setup()
 
 catkin_package()
@@ -18,6 +22,10 @@ catkin_install_python(
     ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-include_directories(
-  ${catkin_INCLUDE_DIRS}
+install(
+    FILES
+        launch/publisher_node.launch
+        launch/sensor_node.launch
+    DESTINATION
+        ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
 )
