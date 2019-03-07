@@ -76,6 +76,7 @@ void setup()
 {
   USB.ON();
   USB.println(F("Smart Environment PRO starting..."));
+  USB.println(F("You may find source code at: https://github.com/airalab/air_pollutions_sensor_waspmote_tlt"));
   USB.print(F("Sensor ID: "));
   USB.println(mote_ID);
   USB.print(F("Destination Server: "));
@@ -104,20 +105,27 @@ void loop()
   USB.println(RTC.getTime());
   
   USB.println(F("Querying sensors..."));
+  frame.createFrame(ASCII, mote_ID);
+  // frame.addSensor(SENSOR_GMT, RTC.getTime()); // #TODO: on setup NTP RTC time update
+  frame.addSensor(SENSOR_BAT, PWR.getBatteryLevel());
   digitalWrite(GP_I2C_MAIN_EN, HIGH); // enable I2C bus
+  
   BME.ON();
-  OPC_N2.ON();
-  probeCO.ON();
-  probeNO.ON();
-  probeSO2.ON();
-
   temperature = BME.getTemperature(BME280_OVERSAMP_16X, BME280_FILTER_COEFF_OFF);
   humidity = BME.getHumidity(BME280_OVERSAMP_16X);
   pressure = BME.getPressure(BME280_OVERSAMP_16X, BME280_FILTER_COEFF_OFF);
-  measurePM();
+  
+  probeCO.ON();
   concentrationCO  = probeCO.getConc();
+  probeCO.OFF();
+  
+  probeNO.ON();
   concentrationNO  = probeNO.getConc();
+  probeNO.OFF();
+  
+  probeSO2.ON();
   concentrationSO2 = probeSO2.getConc();
+  probeSO2.OFF();
 
   USB.print(F("Temperature: "));
   USB.print(temperature);
@@ -128,15 +136,6 @@ void loop()
   USB.print(F("Pressure: "));
   USB.print(pressure);
   USB.println(F(" Pa"));
-  USB.print(F("PM 1: "));
-  USB.print(OPC_N2._PM1);
-  USB.println(F(" ug/m3"));
-  USB.print(F("PM 2.5: "));
-  USB.print(OPC_N2._PM2_5);
-  USB.println(F(" ug/m3"));
-  USB.print(F("PM 10: "));
-  USB.print(OPC_N2._PM10);
-  USB.println(F(" ug/m3"));
   USB.print(F("Gas concentration CO: "));
   USB.print(concentrationCO);
   USB.println(F(" ppm"));
@@ -147,24 +146,31 @@ void loop()
   USB.print(concentrationSO2);
   USB.println(F(" ppm"));
 
-  digitalWrite(GP_I2C_MAIN_EN, LOW); // disable I2C bus
-  OPC_N2.OFF();
-  probeCO.OFF();
-  probeNO.OFF();
-  probeSO2.OFF();
-
-  frame.createFrame(ASCII, mote_ID);
-  // frame.addSensor(SENSOR_GMT, RTC.getTime()); // #TODO: on setup NTP RTC time update
-  frame.addSensor(SENSOR_BAT, PWR.getBatteryLevel());
   frame.addSensor(SENSOR_GASES_PRO_TC, temperature);
   frame.addSensor(SENSOR_GASES_PRO_HUM, humidity);
   frame.addSensor(SENSOR_GASES_PRO_PRES, pressure);
   frame.addSensor(SENSOR_GASES_PRO_CO, concentrationCO);
   frame.addSensor(SENSOR_GASES_PRO_NO, concentrationNO);
   frame.addSensor(SENSOR_GASES_PRO_SO2, concentrationSO2);
-  frame.addSensor(SENSOR_GASES_PRO_PM1, OPC_N2._PM1);
-  frame.addSensor(SENSOR_GASES_PRO_PM2_5, OPC_N2._PM2_5);
-  frame.addSensor(SENSOR_GASES_PRO_PM10, OPC_N2._PM10);
+  
+  OPC_N2.ON();
+  if (measurePM() == 1) {
+    USB.print(F("PM 1: "));
+    USB.print(OPC_N2._PM1);
+    USB.println(F(" ug/m3"));
+    USB.print(F("PM 2.5: "));
+    USB.print(OPC_N2._PM2_5);
+    USB.println(F(" ug/m3"));
+    USB.print(F("PM 10: "));
+    USB.print(OPC_N2._PM10);
+    USB.println(F(" ug/m3"));
+    frame.addSensor(SENSOR_GASES_PRO_PM1, OPC_N2._PM1);
+    frame.addSensor(SENSOR_GASES_PRO_PM2_5, OPC_N2._PM2_5);
+    frame.addSensor(SENSOR_GASES_PRO_PM10, OPC_N2._PM10);
+  }
+  OPC_N2.OFF();
+
+  digitalWrite(GP_I2C_MAIN_EN, LOW); // disable I2C bus
 
   Ed25519::sign(signature, privateKey, publicKey, frame.buffer, sizeof(frame.buffer)); // sign message
   frame.addSensor(SENSOR_STR, (char*) signature);
@@ -175,7 +181,6 @@ void loop()
   error = _4G.openSocketClient(socketId, Wasp4G::TCP, host, port);
   if (error == 0)
   {
-    USB.println(F("Sending data..."));
     error = _4G.send(socketId, (char*) frame.buffer);
     if (error == 0)
     {
@@ -261,7 +266,7 @@ int measurePM() // returns 1 if OK, anything else if a sensor error code
   while (measurePMerror != 1) {
     if (retry > maxRetry) {
       USB.print(F("Error reading PM sensor. Error code: "));
-      USB.println(measurePMerror);
+      USB.println(measurePMerror, DEC);
       break;
     }
     measurePMerror = OPC_N2.getPM(10000, 10000);
