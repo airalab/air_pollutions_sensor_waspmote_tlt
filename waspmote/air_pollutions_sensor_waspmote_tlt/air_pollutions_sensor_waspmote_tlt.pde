@@ -66,6 +66,11 @@ float concentrationNO;    // ppm
 float concentrationSO2;   // ppm
 //////////////////////////////////////////////////////////////////////////////
 
+// COMMUNICATION
+/////////////////////////////////////
+uint32_t RESPONSE_TIMEOUT_MS = 5000;
+/////////////////////////////////////
+
 uint8_t error;
 uint8_t maxRetry = 3;
 
@@ -173,31 +178,62 @@ void loop()
   digitalWrite(GP_I2C_MAIN_EN, LOW); // disable I2C bus
 
   Ed25519::sign(signature, privateKey, publicKey, frame.buffer, sizeof(frame.buffer)); // sign message
-  frame.addSensor(SENSOR_STR, (char*) signature);
-  frame.showFrame();
+  // frame.showFrame();
 
-  USB.println(F("Sending data..."));
   _4G.ON();
-  error = _4G.openSocketClient(socketId, Wasp4G::TCP, host, port);
-  if (error == 0)
-  {
-    error = _4G.send(socketId, (char*) frame.buffer);
-    if (error == 0)
-    {
-      USB.println(F("Data sent successfully."));
+  USB.println(F("Sending data..."));
+
+  for (;;) {
+    error = _4G.openSocketClient(socketId, Wasp4G::TCP, host, port);
+    if (error != 0) {
+      USB.print(F("Connection open error. Code: "));
+      USB.println(error, DEC);
+      continue;
     }
-    else
-    {
+
+    error = _4G.send(socketId, signature, 64);
+    if (error != 0) {
+      USB.print(F("Error sending signature. Code: "));
+      USB.println(error, DEC);
+      _4G.closeSocketClient(socketId);
+      continue;
+    }
+
+    error = _4G.send(socketId, (uint8_t*) &frame.length, 2);
+    if (error != 0) {
+      USB.print(F("Error sending data length. Code: "));
+      USB.println(error, DEC);
+      _4G.closeSocketClient(socketId);
+      continue;
+    }
+
+    error = _4G.send(socketId, (char*) frame.buffer);
+    if (error != 0) {
       USB.print(F("Error sending data. Code: "));
       USB.println(error, DEC);
+      _4G.closeSocketClient(socketId);
+      continue;
     }
-    _4G.closeSocketClient(socketId);
+
+    error = _4G.receive(socketId, RESPONSE_TIMEOUT_MS);
+    if (error != 0) {
+      USB.print(F("Response receiving error. Code: "));
+      USB.println(error, DEC);
+      _4G.closeSocketClient(socketId);
+      continue;
+    }
+
+    if (_4G._buffer[0] != 1) {
+      USB.print(F("Bad response. Code: "));
+      USB.println(_4G.buffer[0], DEC);
+      _4G.closeSocketClient(socketId);
+      continue;
+    }
+
+    break;
   }
-  else
-  {
-    USB.print(F("Error opening socket. Error code: "));
-    USB.println(error, DEC);
-  }
+
+  USB.println(F("Data sent successfully."));
   _4G.OFF();
 
   PWR.deepSleep("00:00:01:00", RTC_OFFSET, RTC_ALM1_MODE1, ALL_OFF);

@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 
 from std_msgs.msg import String
+from json import dumps
 import rospy
 import socket
 import ed25519
 import binascii
-from urllib.parse import urlparse
 import threading
-
 
 class SensorNode:
     def __init__(self):
@@ -37,18 +36,17 @@ class SensorNode:
         while not rospy.is_shutdown():
             try:
                 conn, addr = self.tcp_sock.accept()
-                data = conn.recv(1024)
-                rospy.loginfo('Recieved: %s.', str(data))
-            except:
-                continue
-            try:
-                raw_msg, raw_sig = data[:-1].split(b'STR:')
-            except ValueError:
-                rospy.loginfo('Corrupted message.')
+                signature = conn.recv(64)
+                datalen = int(conn.recv(2))
+                data = conn.recv(datalen)
+                rospy.loginfo('[%s] :: Recieved: %s', addr, str(data))
+                conn.send(1)
+            except Exception as e:
+                rospy.logwarn('[%s] :: Broken connection: %s', addr, e)
                 continue
 
-            msg = binascii.hexlify(raw_msg)
-            sig = binascii.hexlify(raw_sig)[:128] # binary
+            msg = binascii.hexlify(data)
+            sig = binascii.hexlify(signature)
             msg = bytearray(msg)
             msg[9] = msg[9] - 1
             msg = msg + b'0' * (512 - len(msg)) # 512 is signed buffer length
@@ -56,12 +54,12 @@ class SensorNode:
 
             try:
                 self.verifying_key.verify(sig, msg, encoding='hex')
-                rospy.loginfo('Good signature.')
-                self.pub.publish(String(data=str(data.decode(errors='backslashreplace'))))
-            except ed25519.BadSignatureError:
-                rospy.loginfo('Bad signature.')
-            except AssertionError:
-                rospy.loginfo('Corrupted signature.')
+                rospy.loginfo('Good signed message: %s', msg)
+                json_data = dumps({'data': msg, 'signature': sig})
+                self.pub.publish(String(data=str(json_data)))
+
+            except ed25519.BadSignatureError as e:
+                rospy.logwarn('Bad signature `%s` for `%s`', sig, msg)
 
     def spin(self):
         rospy.spin()
