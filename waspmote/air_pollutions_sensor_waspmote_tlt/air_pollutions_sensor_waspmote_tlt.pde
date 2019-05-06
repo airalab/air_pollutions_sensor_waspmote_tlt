@@ -69,6 +69,7 @@ float concentrationSO2;   // ppm
 // COMMUNICATION
 /////////////////////////////////////
 uint32_t RESPONSE_TIMEOUT_MS = 5000;
+char send_buffer[400];
 /////////////////////////////////////
 
 uint8_t error;
@@ -178,7 +179,16 @@ void loop()
   digitalWrite(GP_I2C_MAIN_EN, LOW); // disable I2C bus
 
   Ed25519::sign(signature, privateKey, publicKey, frame.buffer, frame.length); // sign message
-  // frame.showFrame();
+
+  // Hexlify signature
+  for(uint8_t i = 0; i < 64; ++i)
+    sprintf(send_buffer + 2*i, "%02X", signature[i]);
+
+  // Hexlify frame length
+  sprintf(send_buffer + 128, "%04X", frame.length);
+
+  // Frame data
+  sprintf(send_buffer + 132, "%s", frame.buffer);
 
   _4G.ON();
   USB.println(F("Sending data..."));
@@ -191,25 +201,9 @@ void loop()
       continue;
     }
 
-    error = _4G.send(socketId, signature, 64);
+    error = _4G.send(socketId, send_buffer);
     if (error != 0) {
       USB.print(F("Error sending signature. Code: "));
-      USB.println(error, DEC);
-      _4G.closeSocketClient(socketId);
-      continue;
-    }
-
-    error = _4G.send(socketId, (uint8_t*) &frame.length, 2);
-    if (error != 0) {
-      USB.print(F("Error sending data length. Code: "));
-      USB.println(error, DEC);
-      _4G.closeSocketClient(socketId);
-      continue;
-    }
-
-    error = _4G.send(socketId, (char*) frame.buffer);
-    if (error != 0) {
-      USB.print(F("Error sending data. Code: "));
       USB.println(error, DEC);
       _4G.closeSocketClient(socketId);
       continue;
