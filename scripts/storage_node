@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import rospy
+from std_msgs.msg import String
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, Float, DateTime
@@ -39,7 +41,7 @@ class StorageNode:
         def store_msg(msg):
             rospy.loginfo('New data incoming: %s', msg)
             session = Session()
-            session.add(Metric(*parse(msg.data)))
+            session.add(Metric(**parse(msg.data)))
             session.commit()
 
         rospy.Subscriber(rospy.get_param('~ros_topic'), String, store_msg)

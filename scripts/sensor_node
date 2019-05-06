@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from std_msgs.msg import String
-from json import dumps
 import rospy
 import socket
 import ed25519
