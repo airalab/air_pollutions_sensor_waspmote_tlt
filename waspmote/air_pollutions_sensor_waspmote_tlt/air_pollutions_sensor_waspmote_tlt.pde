@@ -177,7 +177,7 @@ void loop()
 
   digitalWrite(GP_I2C_MAIN_EN, LOW); // disable I2C bus
 
-  Ed25519::sign(signature, privateKey, publicKey, frame.buffer, sizeof(frame.buffer)); // sign message
+  Ed25519::sign(signature, privateKey, publicKey, frame.buffer, frame.length); // sign message
   // frame.showFrame();
 
   _4G.ON();
@@ -225,7 +225,7 @@ void loop()
 
     if (_4G._buffer[0] != 1) {
       USB.print(F("Bad response. Code: "));
-      USB.println(_4G.buffer[0], DEC);
+      USB.println(_4G._buffer[0], DEC);
       _4G.closeSocketClient(socketId);
       continue;
     }

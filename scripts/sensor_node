@@ -47,11 +47,6 @@ class SensorNode:
 
             msg = binascii.hexlify(data)
             sig = binascii.hexlify(signature)
-            msg = bytearray(msg)
-            msg[9] = msg[9] - 1
-            msg = msg + b'0' * (512 - len(msg)) # 512 is signed buffer length
-            msg = binascii.a2b_hex(msg)
-
             try:
                 self.verifying_key.verify(sig, msg, encoding='hex')
                 rospy.loginfo('Good signed message: %s', msg)
