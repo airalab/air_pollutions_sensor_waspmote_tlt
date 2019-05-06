@@ -42,7 +42,7 @@ uint8_t* publicKey = verifying_key; // from "secrets.h"
 
 // SERVER
 /////////////////////////////////////////
-char host[] = "devjs-01.corp.aira.life";
+char host[] = "atmosensors.aira.life";
 uint16_t port = 3009;
 uint8_t socketId = Wasp4G::CONNECTION_1;
 uint8_t socketIndex;
