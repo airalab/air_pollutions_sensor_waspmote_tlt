@@ -39,10 +39,10 @@ class SensorNode:
                 signature = conn.recv(64)
                 datalen = int(conn.recv(2))
                 data = conn.recv(datalen)
-                rospy.loginfo('[%s] :: Recieved: %s', addr, str(data))
-                conn.send(1)
+                rospy.loginfo('[%s] :: Recieved: signature=%s len=%s data=%s', addr[0], signature, datalen, data)
+                conn.send(b'\1')
             except Exception as e:
-                rospy.logwarn('[%s] :: Broken connection: %s', addr, e)
+                rospy.logwarn('[%s] :: Broken connection: %s', addr[0], e)
                 continue
 
             msg = binascii.hexlify(data)
