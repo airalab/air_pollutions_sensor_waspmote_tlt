@@ -17,6 +17,7 @@ catkin_package()
 catkin_install_python(
   PROGRAMS
     scripts/sensor_node
+    scripts/storage_node
     scripts/publisher_node
   DESTINATION
     ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -24,8 +25,7 @@ catkin_install_python(
 
 install(
     FILES
-        launch/publisher_node.launch
-        launch/sensor_node.launch
+        launch/air_sensor.launch
     DESTINATION
         ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
 )
