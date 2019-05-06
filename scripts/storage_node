@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from datetime import datetime
+from sqlalchemy import create_engine
+from sqlalchemy import Column, Integer, Float, DateTime
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class Metric(Base):
+    __tablename__ = 'metrics'
+
+    id = Column(Integer, primary_key=True)
+    createdAt = Column(DateTime, default=datetime.now)
+
+    BAT   = Column(Float)
+    TC    = Column(Float)
+    HUM   = Column(Float)
+    PRES  = Column(Float)
+    CO    = Column(Float)
+    NO    = Column(Float)
+    SO2   = Column(Float)
+    PM1   = Column(Float)
+    PM2_5 = Column(Float)
+    PM10  = Column(Float)
+
+def parse(data):
+    return dict(filter(lambda x: len(x) > 1, [ a.split(':') for a in data.split('#') ]))
+
+class StorageNode:
+    def __init__(self):
+        rospy.init_node('storage')
+        engine = create_engine(rospy.get_param('~database_uri', 'sqlite:///:memory:'))
+        Base.metadata.create_all(engine)
+        Session = sessionmaker(bind=engine)
+
+        def store_msg(msg):
+            rospy.loginfo('New data incoming: %s', msg)
+            session = Session()
+            session.add(Metric(*parse(msg.data)))
+            session.commit()
+
+        rospy.Subscriber(rospy.get_param('~ros_topic'), String, store_msg)
+
+    def spin(self):
+        rospy.spin()
+
+if __name__ == '__main__':
+    StorageNode().spin()

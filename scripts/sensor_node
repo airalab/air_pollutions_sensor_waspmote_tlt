@@ -13,12 +13,11 @@ class SensorNode:
     def __init__(self):
         rospy.init_node('sensor')
 
-        # Sensor TCP socket
+        # Sensor UDP socket
         server_address = rospy.get_param('~server_address').split(':')
         self.gw_addr = (server_address[0], int(server_address[1]))
-        self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.tcp_sock.bind(self.gw_addr)
-        self.tcp_sock.listen(1)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(self.gw_addr)
 
         # Ed25519 verification
         keydata = open(rospy.get_param('~verifying_key'), 'rb').read()
@@ -35,30 +34,24 @@ class SensorNode:
     def recv_loop(self):
         while not rospy.is_shutdown():
             try:
-                conn, addr = self.tcp_sock.accept()
-                signature = conn.recv(64)
-                datalen = int(conn.recv(2))
-                data = conn.recv(datalen)
-                rospy.loginfo('[%s] :: Recieved: signature=%s len=%s data=%s', addr[0], signature, datalen, data)
-                conn.send(b'\1')
-            except Exception as e:
-                rospy.logwarn('[%s] :: Broken connection: %s', addr[0], e)
-                continue
+                packet, addr = self.sock.recvfrom(512)
+                signature = packet[:128]
+                data = packet[128:]
+                rospy.loginfo('[%s] :: Recieved: signature=%s data=%s', addr[0], signature, data)
 
-            msg = binascii.hexlify(data)
-            sig = binascii.hexlify(signature)
-            try:
-                self.verifying_key.verify(sig, msg, encoding='hex')
-                rospy.loginfo('Good signed message: %s', msg)
-                json_data = dumps({'data': msg, 'signature': sig})
-                self.pub.publish(String(data=str(json_data)))
+                self.verifying_key.verify(signature, data, encoding='hex')
+                rospy.loginfo('[%s] :: Good signed message', addr[0])
+
+                self.pub.publish(String(data=str(packet)))
 
             except ed25519.BadSignatureError as e:
-                rospy.logwarn('Bad signature `%s` for `%s`', sig, msg)
+                rospy.logwarn('[%s] :: Bad signature `%s` for `%s`', addr[0], signature, data)
+
+            except Exception as e:
+                rospy.logwarn('[%s] :: Something broken: %s', addr[0], e)
 
     def spin(self):
         rospy.spin()
-        
 
 if __name__ == '__main__':
     SensorNode().spin()

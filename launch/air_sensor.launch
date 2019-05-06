@@ -1,0 +1,26 @@
+<launch>
+  <arg name="verifying_key" default="/root/TLT01-verifying-public-key.ed25519" />
+  <arg name="server_address" default="0.0.0.0:3009" />
+  <arg name="ros_topic" default="/sensor/data" />
+  <arg name="ipfs_http_provider" default="http://127.0.0.1:5001" />
+  <arg name="ipfs_topic" default="sensor.0.airalab.org" />
+  <arg name="database_uri" default="sqlite:///storage.db" />
+
+  <node name="sensor" pkg="air_pollutions_sensor_waspmote_tlt" type="sensor_node" output="screen">
+    <param name="server_address" value="$(arg server_address)" />
+    <param name="verifying_key" value="$(arg verifying_key)" />
+  </node>
+
+  <node name="storage" pkg="air_pollutions_sensor_waspmote_tlt" type="storage_node" output="screen">
+    <param name="ros_topic" value="$(arg ros_topic)" />
+    <param name="database_uri" value="$(arg database_uri)" />
+  </node>
+
+  <!--
+  <node name="ipfs_publisher" pkg="air_pollutions_sensor_waspmote_tlt" type="publisher_node" output="screen">
+    <param name="ipfs_http_provider" value="$(arg ipfs_http_provider)" />
+    <param name="ipfs_topic" value="$(arg ipfs_topic)" />
+    <param name="ros_topic" value="$(arg ros_topic)" />
+  </node>
+  -->
+</launch>
