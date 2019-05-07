@@ -13,6 +13,7 @@ mkRosPackage rec {
 
   propagatedBuildInputs = [
     python3Packages.ed25519
+    python3Packages.psycopg2
     python3Packages.sqlalchemy
     robonomics_comm
   ];
