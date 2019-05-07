@@ -180,21 +180,18 @@ void loop()
 
   Ed25519::sign(signature, privateKey, publicKey, frame.buffer, frame.length); // sign message
 
-  // Hexlify signature
+  // 64 byte signature in hex (128 chars)
   for(uint8_t i = 0; i < 64; ++i)
     sprintf(send_buffer + 2*i, "%02X", signature[i]);
 
-  // Hexlify frame length
-  sprintf(send_buffer + 128, "%04X", frame.length);
-
-  // Frame data
-  sprintf(send_buffer + 132, "%s", frame.buffer);
+  // ASCII frame data
+  sprintf(send_buffer + 128, "%s", frame.buffer);
 
   _4G.ON();
   USB.println(F("Sending data..."));
 
   for (;;) {
-    error = _4G.openSocketClient(socketId, Wasp4G::TCP, host, port);
+    error = _4G.openSocketClient(socketId, Wasp4G::UDP, host, port);
     if (error != 0) {
       USB.print(F("Connection open error. Code: "));
       USB.println(error, DEC);
@@ -203,23 +200,8 @@ void loop()
 
     error = _4G.send(socketId, send_buffer);
     if (error != 0) {
-      USB.print(F("Error sending signature. Code: "));
+      USB.print(F("Sending error. Code: "));
       USB.println(error, DEC);
-      _4G.closeSocketClient(socketId);
-      continue;
-    }
-
-    error = _4G.receive(socketId, RESPONSE_TIMEOUT_MS);
-    if (error != 0) {
-      USB.print(F("Response receiving error. Code: "));
-      USB.println(error, DEC);
-      _4G.closeSocketClient(socketId);
-      continue;
-    }
-
-    if (_4G._buffer[0] != 1) {
-      USB.print(F("Bad response. Code: "));
-      USB.println(_4G._buffer[0], DEC);
       _4G.closeSocketClient(socketId);
       continue;
     }
