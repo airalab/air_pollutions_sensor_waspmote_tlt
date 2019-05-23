@@ -15,6 +15,7 @@ mkRosPackage rec {
     python3Packages.ed25519
     python3Packages.psycopg2
     python3Packages.sqlalchemy
+    python3Packages.psycopg2
     robonomics_comm
   ];
 

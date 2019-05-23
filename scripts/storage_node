@@ -27,13 +27,15 @@ class Metric(Base):
     PM1   = Column(Float)
     PM2_5 = Column(Float)
     PM10  = Column(Float)
+    CO2   = Column(Float)
+    NOISE = Column(Float)
 
 def parse(data):
     return dict(filter(lambda x: len(x) > 1, [ a.split(':') for a in data.split('#') ]))
 
 class StorageNode:
     def __init__(self):
-        rospy.init_node('storage')
+        rospy.init_node('storage', anonymous=True)
         engine = create_engine(rospy.get_param('~database_uri', 'sqlite:///:memory:'))
         Base.metadata.create_all(engine)
         Session = sessionmaker(bind=engine)

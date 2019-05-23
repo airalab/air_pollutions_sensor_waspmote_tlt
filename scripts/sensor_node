@@ -10,7 +10,7 @@ import threading
 
 class SensorNode:
     def __init__(self):
-        rospy.init_node('sensor')
+        rospy.init_node('sensor', anonymous=True)
 
         # Sensor UDP socket
         server_address = rospy.get_param('~server_address').split(':')
@@ -26,7 +26,7 @@ class SensorNode:
         threading.Thread(target=self.recv_loop, daemon=True).start()
 
         # ROS API
-        self.pub = rospy.Publisher('~data', String, queue_size=128)
+        self.pub = rospy.Publisher(rospy.get_param('~ros_topic'), String, queue_size=128)
 
         rospy.loginfo('Node ' + rospy.get_name() + ' started.')
     

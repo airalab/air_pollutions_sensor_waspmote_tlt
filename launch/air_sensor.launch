@@ -7,6 +7,7 @@
   <arg name="database_uri" default="sqlite:///storage.db" />
 
   <node name="sensor" pkg="air_pollutions_sensor_waspmote_tlt" type="sensor_node" output="screen">
+    <param name="ros_topic" value="$(arg ros_topic)" />
     <param name="server_address" value="$(arg server_address)" />
     <param name="verifying_key" value="$(arg verifying_key)" />
   </node>
