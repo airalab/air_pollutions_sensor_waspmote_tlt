@@ -26,10 +26,8 @@
 
 #include "secrets.h"
 #include <Ed25519.h> // https://github.com/khssnv/waspmote_ed25519
-#include <WaspSensorGas_Pro.h>
 #include <WaspSensorCities_PRO.h>
-#include <WaspOPC_N2.h>
-#include <BME280.h>
+#include <WaspPM.h>
 #include <WaspFrame.h>
 #include <Wasp4G.h>
 
@@ -52,9 +50,8 @@ char apn[] = "";
 
 // SENSORS
 //////////////////////////////////////////////////////////////////////////////
-// P&S! Possibilities for this sensor: SOCKET_A, SOCKET_B, SOCKET_C, SOCKET_F
-// BME - Temp, Hum, Press
-// OPC_N2 - PM
+// PM is PM object
+bmeCitiesSensor bme(SOCKET_E);
 Gas probeCO2(SOCKET_B);
 Gas probeCO(SOCKET_C);
 
@@ -99,8 +96,17 @@ void setup()
   
   _4G.set_APN(apn);
   _4G.show_APN();
+
+  probeCO.ON();
+  probeCO2.ON();
   
+  USB.println(F("Enter deep sleep mode to wait 2 min for gas sensors heating time..."));
+  delay(2*60);
+  //PWR.deepSleep("00:00:02:00", RTC_OFFSET, RTC_ALM1_MODE1, ALL_ON);
+  USB.ON();
   pinMode(GP_I2C_MAIN_EN, OUTPUT); // configure I2C bus to read sensors
+  digitalWrite(GP_I2C_MAIN_EN, HIGH); // enable I2C bus
+  bme.ON();
   noise.configure();  // enable noise sensor
   
   USB.println(F("Setup complete."));
@@ -116,21 +122,13 @@ void loop()
   frame.createFrame(ASCII, mote_ID);
   // frame.addSensor(SENSOR_GMT, RTC.getTime()); // #TODO: on setup NTP RTC time update
   frame.addSensor(SENSOR_BAT, PWR.getBatteryLevel());
-  digitalWrite(GP_I2C_MAIN_EN, HIGH); // enable I2C bus
+  //digitalWrite(GP_I2C_MAIN_EN, HIGH); // enable I2C bus
   
-  BME.ON();
-  temperature = BME.getTemperature(BME280_OVERSAMP_16X, BME280_FILTER_COEFF_OFF);
-  humidity = BME.getHumidity(BME280_OVERSAMP_16X);
-  pressure = BME.getPressure(BME280_OVERSAMP_16X, BME280_FILTER_COEFF_OFF);
-  
-  probeCO.ON();
-  concentrationCO  = probeCO.getConc();
-  probeCO.OFF();
-  
-  probeCO2.ON();
-  concentrationCO2 = probeCO2.getConc();
-  probeCO2.OFF();
-
+  temperature = bme.getTemperature();
+  humidity = bme.getHumidity();
+  pressure = bme.getPressure();
+  concentrationCO  = probeCO.getConc(temperature);
+  concentrationCO2 = probeCO2.getConc(temperature);
   noise.getSPLA(SLOW_MODE);
 
   USB.print(F("Temperature: "));
@@ -149,34 +147,34 @@ void loop()
   USB.print(concentrationCO2);
   USB.println(F(" ppm"));
 
-  frame.addSensor(SENSOR_GASES_PRO_TC, temperature);
-  frame.addSensor(SENSOR_GASES_PRO_HUM, humidity);
-  frame.addSensor(SENSOR_GASES_PRO_PRES, pressure);
+  frame.addSensor(SENSOR_CITIES_PRO_TC, temperature);
+  frame.addSensor(SENSOR_CITIES_PRO_HUM, humidity);
+  frame.addSensor(SENSOR_CITIES_PRO_PRES, pressure);
   frame.addSensor(SENSOR_CITIES_PRO_NOISE, noise.SPLA);
-  frame.addSensor(SENSOR_GASES_PRO_CO, concentrationCO);
-  frame.addSensor(SENSOR_GASES_PRO_CO2, concentrationCO2);
+  frame.addSensor(SENSOR_CITIES_PRO_CO, concentrationCO);
+  frame.addSensor(SENSOR_CITIES_PRO_CO2, concentrationCO2);
   
-  OPC_N2.ON();
+  PM.ON();
   if (measurePM() == 1) {
     USB.print(F("PM 1: "));
-    USB.print(OPC_N2._PM1);
+    USB.print(PM._PM1);
     USB.println(F(" ug/m3"));
     USB.print(F("PM 2.5: "));
-    USB.print(OPC_N2._PM2_5);
+    USB.print(PM._PM2_5);
     USB.println(F(" ug/m3"));
     USB.print(F("PM 10: "));
-    USB.print(OPC_N2._PM10);
+    USB.print(PM._PM10);
     USB.println(F(" ug/m3"));
-    frame.addSensor(SENSOR_GASES_PRO_PM1, OPC_N2._PM1);
-    frame.addSensor(SENSOR_GASES_PRO_PM2_5, OPC_N2._PM2_5);
-    frame.addSensor(SENSOR_GASES_PRO_PM10, OPC_N2._PM10);
+    frame.addSensor(SENSOR_CITIES_PRO_PM1, PM._PM1);
+    frame.addSensor(SENSOR_CITIES_PRO_PM2_5, PM._PM2_5);
+    frame.addSensor(SENSOR_CITIES_PRO_PM10, PM._PM10);
   }
-  OPC_N2.OFF();
+  PM.OFF();
 
   // print frame to serial
   frame.showFrame();
 
-  digitalWrite(GP_I2C_MAIN_EN, LOW); // disable I2C bus
+  //digitalWrite(GP_I2C_MAIN_EN, LOW); // disable I2C bus
 
   Ed25519::sign(signature, privateKey, publicKey, frame.buffer, frame.length); // sign message
 
@@ -212,8 +210,8 @@ void loop()
   USB.println(F("Data sent successfully."));
   _4G.OFF();
 
-  PWR.deepSleep("00:00:00:20", RTC_OFFSET, RTC_ALM1_MODE1, ALL_OFF);
-  USB.ON();
+  //PWR.deepSleep("00:00:00:20", RTC_OFFSET, RTC_ALM1_MODE1, ALL_OFF);
+  //USB.ON();
 }
 
 void setupTime()
@@ -281,7 +279,7 @@ int measurePM() // returns 1 if OK, anything else if a sensor error code
       USB.println(measurePMerror, DEC);
       break;
     }
-    measurePMerror = OPC_N2.getPM(10000, 10000);
+    measurePMerror = PM.getPM(10000, 10000);
     retry++;
   }
   return measurePMerror;
